@@ -7,7 +7,7 @@ def SamtoText(input_dir, current, bamfile_name, chromosomes):
 	last_dir = os.path.basename(os.path.normpath(bamfile_name)).split('.bam')[0]
 	os.makedirs(last_dir, exist_ok=True)
 
-	samtools_dir = os.path.join(current, "samtools")
+	samtools_dir = "/usr/bin/samtools-0.1.8/samtools"
 	try:
 		cmd1 = samtools_dir+" index "+os.path.join(current, input_dir, bamfile_name)		## make samtools index filename.bam.bai
 		os.system(cmd1)
@@ -25,7 +25,6 @@ def SamtoText(input_dir, current, bamfile_name, chromosomes):
 		#print(command)
 		try:
 			os.system(command)
-			os.system("rm "+os.path.join(current, output_dir, chrom+".bam"))
 		except ValueError:
 			print("Read coverage file could not be generated")
 			sys.exit()
