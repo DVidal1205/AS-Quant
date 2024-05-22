@@ -19,6 +19,7 @@ chromosomes_h = ['chr1','chr2','chr3','chr4','chr5','chr6','chr7','chr8','chr9',
 chromosomes_m = ['chr1','chr2','chr3','chr4','chr5','chr6','chr7','chr8','chr9','chr10','chr11','chr12','chr13','chr14','chr15','chr16','chr17','chr18','chr19','chrX','chrY']
 target_AS = ['SE', 'RI', 'MXE', 'A3SS', 'A5SS']
 
+### Read in all of the command line arguments and set the default values
 if(len(sys.argv)<6):
 	print("Please provide all mandatory arguments. \nFormat: $ python3 as_quant.py -s hg38 -i dir1 dir2")
 	sys.exit()
@@ -55,8 +56,10 @@ if method == 'ranksum':
 		print("Please provide multiple samples/replicates in each group to run ranksum test, otherwise select chisquare.")
 		sys.exit()
 
+### Grab the group names from the input directories
 g1_name, g2_name = os.path.basename(input1_dir), os.path.basename(input2_dir)
 
+### Determine the chromosomes based on the species
 if species == 'hg38' or species == 'hg19':
 	chromosomes = chromosomes_h
 elif species == 'mm10':
@@ -65,6 +68,7 @@ else:
 	print("Species not found. Please select among hg38, hg19 or mm10")
 	sys.exit()
 
+### BEGIN AS-QUANT PIPELINE
 print("Generating read coverage files for each chromosome...")
 current = os.getcwd()
 os.chdir(input1_dir)
