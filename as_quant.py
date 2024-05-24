@@ -70,6 +70,8 @@ else:
 
 ### BEGIN AS-QUANT PIPELINE
 print("Generating read coverage files for each chromosome...")
+
+### Creates the index files and generates the read coverage files for each chromosome] (Only 0.01 minutes)
 current = os.getcwd()
 os.chdir(input1_dir)
 for file1 in glob.glob("*.bam"):
@@ -83,12 +85,11 @@ os.chdir(current)
 s1_namelist, s2_namelist = list_dirs(input1_dir), list_dirs(input2_dir)
 ann_df = pd.read_csv(os.path.join(species, 'annotation.csv'), delimiter='\t', index_col=0)
 
-#### convert the whole annotation into a dictionary for faster use
+#### convert the whole annotation into a dictionary for faster use (0.22 Minutes, massive bottleneck)
 ChromDict = methods.MakeFullDictionary(ann_df, chromosomes)
 
 #### merge the exons intervals #####
 ChromDict_merged = methods.merge_ChromDict(ChromDict, chromosomes)
-
 
 if novel.upper() == 'YES':
 	print("Running AS-Quant for detecting significant novel (unannotated) splicing events...")
@@ -100,7 +101,7 @@ if novel.upper() == 'YES':
 		for sample in s2_namelist:
 			print("Executing: ",sample, "in group 2")
 			methods.Find_Novel_splicing_events(ChromDict_merged, ChromDict, chromosomes, AS, input2_dir, species, sample, output_dir)
-			
+
 else:
 	print("Running AS-Quant for detecting significant annotated splicing events...")
 	for AS in target_AS:
@@ -113,6 +114,8 @@ else:
 			print("Executing: ",sample, "in group 2")
 			methods.Find_splicing_events(ChromDict_merged, chromosomes, AS, input2_dir, species, sample, output_dir)
 
+
+start = time.time()
 writer_out = pd.ExcelWriter(os.path.join(output_dir, "asquant_"+g1_name+"_Vs_"+g2_name+".xlsx"), engine='xlsxwriter')
 for AS in target_AS:
 	if method.lower() == 'ranksum':
@@ -127,7 +130,9 @@ for AS in target_AS:
 	df.sort_values(by=['P_value'], ascending=True, inplace=True)
 	df.to_excel(writer_out, sheet_name=AS, index = None, header=True)
 	os.remove(os.path.join(output_dir, AS+"_Output.csv"))
-writer_out.save()
+writer_out.close()
+end = time.time()
+print("Elapsed time for excel writing: ",round((end-start)/60,2), "minutes")
 
 totalTime = time.time() - startTime
 print("Total AS-Quant time is : ",round((totalTime/60),2), "minutes")

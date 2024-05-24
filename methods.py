@@ -5,6 +5,7 @@ import time
 import bisect
 from bisect import bisect_left
 import sys, os
+from multiprocessing import Pool, cpu_count
 
 class Stack:
 	def __init__(self):
@@ -210,29 +211,35 @@ def Find_splicing_events(ChromDict_merged, chromosomes, AS, input_dir, species, 
 	print("Elapsed time: ",round(((time.time()-tt)/60),2), "minutes")
 
 
+def process_chromosome(args):
+    chrom, ann_df = args
+    chr_rows = ann_df[ann_df['chrom'] == chrom]
+    GeneDict = {}
+    for gene in chr_rows['gene'].unique():
+        gene_rows = chr_rows[chr_rows['gene'] == gene]
+        exonStarts = gene_rows['exonStarts'].str.split(',')
+        exonEnds = gene_rows['exonEnds'].str.split(',')
+
+        exList = set()
+        for starts, ends in zip(exonStarts, exonEnds):
+            for start, end in zip(starts, ends):
+                if start and end:
+                    try:
+                        exList.add((int(start), int(end)))
+                    except ValueError as e:
+                        print(f"ValueError for chromosome {chrom}, gene {gene}: start={start}, end={end}")
+                        raise e
+
+        GeneDict[gene.strip().upper()] = sorted(list(exList))  # Sort the exList before returning
+    return chrom, GeneDict
+
 def MakeFullDictionary(ann_df, chromosomes):
-	ChromDict = {}
-	for chrom in chromosomes:
-		GeneDict = {}
-		chr_rows = ann_df[ann_df['chrom']==chrom]
-		gene_list = list(set(chr_rows['gene']))
-		for gene in gene_list:
-			gene_rows = chr_rows[chr_rows['gene']==gene]
-			exList = []
-			for index, row in gene_rows.iterrows():
-				exonCount = row['exonCount']
-				exonStarts = list(filter(None, row['exonStarts'].split(',')))
-				exonEnds = list(filter(None, row['exonEnds'].split(',')))
-				for i in range(exonCount):
-					st, en = int(exonStarts[i]), int(exonEnds[i])
-					if (st, en) not in exList:
-						exList.append((st, en))
-
-			GeneDict[gene.strip().upper()] = exList
-
-		ChromDict[chrom] = GeneDict
-
-	return ChromDict
+    ChromDict = {}
+    with Pool(cpu_count()) as pool:
+        results = pool.map(process_chromosome, [(chrom, ann_df) for chrom in chromosomes])
+        for chrom, GeneDict in results:
+            ChromDict[chrom] = GeneDict
+    return ChromDict
 
 def merge_ChromDict(ChromDict, chromosomes):
 	ChromDict_merged = {}
