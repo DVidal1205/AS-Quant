@@ -9,11 +9,34 @@ import methods
 import preprocess
 import sys
 import configparser
+from multiprocessing import Pool, cpu_count
+import time
+from concurrent.futures import ProcessPoolExecutor
 
 def list_dirs(path):
     return [os.path.basename(x) for x in filter(os.path.isdir, glob.glob(os.path.join(path, '*')))]
 
+def execute_find_splicing_events(args):
+    ChromDict_merged, chromosomes, AS, input_dir, species, sample, output_dir = args
+    methods.Find_splicing_events(ChromDict_merged, chromosomes, AS, input_dir, species, sample, output_dir)
 
+def parallel_find_splicing_events(ChromDict_merged, chromosomes, target_AS, input1_dir, input2_dir, species, s1_namelist, s2_namelist, output_dir, cores):
+    tasks = []
+    for AS in target_AS:
+        print("Spliced Exon type: ", AS)
+        
+        for sample in s1_namelist:
+            print("Submitting: ", sample, "in group 1")
+            tasks.append((ChromDict_merged, chromosomes, AS, input1_dir, species, sample, output_dir))
+        
+        for sample in s2_namelist:
+            print("Submitting: ", sample, "in group 2")
+            tasks.append((ChromDict_merged, chromosomes, AS, input2_dir, species, sample, output_dir))
+
+    with Pool(int(cores)) as pool:
+        pool.map(execute_find_splicing_events, tasks)
+
+startCPUTime = time.process_time()
 startTime = time.time()
 chromosomes_h = ['chr1','chr2','chr3','chr4','chr5','chr6','chr7','chr8','chr9','chr10','chr11','chr12','chr13','chr14','chr15','chr16','chr17','chr18','chr19','chr20','chr21', 'chr22','chrX','chrY']
 chromosomes_m = ['chr1','chr2','chr3','chr4','chr5','chr6','chr7','chr8','chr9','chr10','chr11','chr12','chr13','chr14','chr15','chr16','chr17','chr18','chr19','chrX','chrY']
@@ -34,6 +57,8 @@ for ii in range(len(sys.argv)):
 		input2_dir = sys.argv[ii+2]
 	if sys.argv[ii] == '-method':
 		method = sys.argv[ii+1]
+	if sys.argv[ii] == '-c':
+		cores = sys.argv[ii+1]
 
 if "-o" not in sys.argv and "-O" not in sys.argv:
 	output_dir = 'Output/'
@@ -55,6 +80,13 @@ if method == 'ranksum':
 	if count1 < 2 or count2 < 2:
 		print("Please provide multiple samples/replicates in each group to run ranksum test, otherwise select chisquare.")
 		sys.exit()
+
+if '-c' not in sys.argv:
+	cores = cpu_count()
+
+if int(cores) > cpu_count():
+	print("Number of cores requested is greater than available cores. Please provide a number less than or equal to", cpu_count())
+	sys.exit()
 
 ### Grab the group names from the input directories
 g1_name, g2_name = os.path.basename(input1_dir), os.path.basename(input2_dir)
@@ -86,7 +118,8 @@ s1_namelist, s2_namelist = list_dirs(input1_dir), list_dirs(input2_dir)
 ann_df = pd.read_csv(os.path.join(species, 'annotation.csv'), delimiter='\t', index_col=0)
 
 #### convert the whole annotation into a dictionary for faster use (0.22 Minutes, massive bottleneck)
-ChromDict = methods.MakeFullDictionary(ann_df, chromosomes)
+print("Converting annotation into dictionary using", cores, "cores...")
+ChromDict = methods.MakeFullDictionary(ann_df, chromosomes, cores)
 
 #### merge the exons intervals #####
 ChromDict_merged = methods.merge_ChromDict(ChromDict, chromosomes)
@@ -104,15 +137,8 @@ if novel.upper() == 'YES':
 
 else:
 	print("Running AS-Quant for detecting significant annotated splicing events...")
-	for AS in target_AS:
-		print("Spliced Exon type: ",AS)
-		for sample in s1_namelist:
-			print("Executing: ",sample, "in group 1")
-			methods.Find_splicing_events(ChromDict_merged, chromosomes, AS, input1_dir, species, sample, output_dir)
 
-		for sample in s2_namelist:
-			print("Executing: ",sample, "in group 2")
-			methods.Find_splicing_events(ChromDict_merged, chromosomes, AS, input2_dir, species, sample, output_dir)
+	parallel_find_splicing_events(ChromDict_merged, chromosomes, target_AS, input1_dir, input2_dir, species, s1_namelist, s2_namelist, output_dir, cores)
 
 
 start = time.time()
@@ -135,4 +161,6 @@ end = time.time()
 print("Elapsed time for excel writing: ",round((end-start)/60,2), "minutes")
 
 totalTime = time.time() - startTime
+totalCPUTime = time.process_time() - startCPUTime
 print("Total AS-Quant time is : ",round((totalTime/60),2), "minutes")
+print("Total AS-Quant CPU time is : ",round((totalCPUTime/60),2), "minutes")

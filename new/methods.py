@@ -138,8 +138,7 @@ def Find_Novel_splicing_events(ChromDict_merged, ChromDict, chromosomes, AS, inp
 	df_out = pd.DataFrame(writer_list, columns = output_columns)
 	df_out.to_csv(os.path.join(output_dir, sample+"_"+AS+".csv"), sep='\t', index=False)
 
-	print("Elapsed time: ",round(((time.time()-tt)/60),2), "minutes")
-
+	print("Elapsed time for", AS, "in", sample, ":" ,round(((time.time()-tt)/60),2), "minutes")
 
 def Find_splicing_events(ChromDict_merged, chromosomes, AS, input_dir, species, sample, output_dir):
 	tt = time.time()
@@ -208,7 +207,7 @@ def Find_splicing_events(ChromDict_merged, chromosomes, AS, input_dir, species, 
 	df_out = pd.DataFrame(writer_list, columns = output_columns)
 	df_out.to_csv(os.path.join(output_dir, sample+"_"+AS+".csv"), sep='\t', index=False)
 
-	print("Elapsed time: ",round(((time.time()-tt)/60),2), "minutes")
+	print("Elapsed time for", AS, "in", sample, ":" ,round(((time.time()-tt)/60),2), "minutes")
 
 
 def process_chromosome(args):
@@ -233,9 +232,9 @@ def process_chromosome(args):
         GeneDict[gene.strip().upper()] = sorted(list(exList))  # Sort the exList before returning
     return chrom, GeneDict
 
-def MakeFullDictionary(ann_df, chromosomes):
+def MakeFullDictionary(ann_df, chromosomes, cores):
     ChromDict = {}
-    with Pool(cpu_count()) as pool:
+    with Pool(int(cores)) as pool:
         results = pool.map(process_chromosome, [(chrom, ann_df) for chrom in chromosomes])
         for chrom, GeneDict in results:
             ChromDict[chrom] = GeneDict
