@@ -26,11 +26,9 @@ def parallel_find_splicing_events(ChromDict_merged, chromosomes, target_AS, inpu
         print("Spliced Exon type: ", AS)
         
         for sample in s1_namelist:
-            print("Submitting: ", sample, "in group 1")
             tasks.append((ChromDict_merged, chromosomes, AS, input1_dir, species, sample, output_dir))
         
         for sample in s2_namelist:
-            print("Submitting: ", sample, "in group 2")
             tasks.append((ChromDict_merged, chromosomes, AS, input2_dir, species, sample, output_dir))
 
     with Pool(int(cores)) as pool:
@@ -104,13 +102,16 @@ else:
 print("Generating read coverage files for each chromosome...")
 
 ### Creates the index files and generates the read coverage files for each chromosome] (Only 0.01 minutes)
+print("Converting BAM files to text files using", cores, "cores...")
 current = os.getcwd()
 os.chdir(input1_dir)
 for file1 in glob.glob("*.bam"):
-    preprocess.SamtoText(input1_dir, current, file1, chromosomes)
+    preprocess.SamtoText(input1_dir, current, file1, chromosomes, cores)
+print("Read coverage files generated for group 1")
 os.chdir(os.path.join(current,input2_dir))
 for file2 in glob.glob("*.bam"):
-    preprocess.SamtoText(input2_dir, current, file2, chromosomes)
+    preprocess.SamtoText(input2_dir, current, file2, chromosomes, cores)
+print("Read coverage files generated for group 2")
 os.chdir(current)
 
 #### load samples lists and annotation
