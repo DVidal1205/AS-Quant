@@ -25,6 +25,7 @@ def SamtoText(input_dir, current, bamfile_name, chromosomes):
 		#print(command)
 		try:
 			os.system(command)
+			os.system("rm "+os.path.join(current, output_dir, chrom+".bam"))
 		except ValueError:
 			print("Read coverage file could not be generated")
 			sys.exit()

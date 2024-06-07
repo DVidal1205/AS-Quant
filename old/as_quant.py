@@ -9,14 +9,12 @@ import methods
 import preprocess
 import sys
 import configparser
-from time import process_time
 
 def list_dirs(path):
     return [os.path.basename(x) for x in filter(os.path.isdir, glob.glob(os.path.join(path, '*')))]
 
 
 startTime = time.time()
-startCPUTime = process_time()
 chromosomes_h = ['chr1','chr2','chr3','chr4','chr5','chr6','chr7','chr8','chr9','chr10','chr11','chr12','chr13','chr14','chr15','chr16','chr17','chr18','chr19','chr20','chr21', 'chr22','chrX','chrY']
 chromosomes_m = ['chr1','chr2','chr3','chr4','chr5','chr6','chr7','chr8','chr9','chr10','chr11','chr12','chr13','chr14','chr15','chr16','chr17','chr18','chr19','chrX','chrY']
 target_AS = ['SE', 'RI', 'MXE', 'A3SS', 'A5SS']
@@ -129,4 +127,3 @@ writer_out.save()
 
 totalTime = time.time() - startTime
 print("Total AS-Quant time is : ",round((totalTime/60),2), "minutes")
-print("Total AS-Quant CPU time is : ",round((process_time()/60),2), "minutes")
