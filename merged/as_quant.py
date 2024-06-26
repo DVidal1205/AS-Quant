@@ -1,79 +1,136 @@
-import csv
-import glob, os
-from operator import attrgetter
+import glob
+import os
 import pandas as pd
 import time
-import bisect
 import count_pvalue
 import methods
 import preprocess
 import sys
-import configparser
 from multiprocessing import Pool, cpu_count
 
+
 def list_dirs(path):
-    return [os.path.basename(x) for x in filter(os.path.isdir, glob.glob(os.path.join(path, '*')))]
+    return [os.path.basename(x) for x in filter(os.path.isdir, glob.glob(os.path.join(path, "*")))]
+
 
 startTime = time.time()
-chromosomes_h = ['chr1','chr2','chr3','chr4','chr5','chr6','chr7','chr8','chr9','chr10','chr11','chr12','chr13','chr14','chr15','chr16','chr17','chr18','chr19','chr20','chr21', 'chr22','chrX','chrY']
-chromosomes_m = ['chr1','chr2','chr3','chr4','chr5','chr6','chr7','chr8','chr9','chr10','chr11','chr12','chr13','chr14','chr15','chr16','chr17','chr18','chr19','chrX','chrY']
-target_AS = ['SE', 'RI', 'MXE', 'A3SS', 'A5SS']
+chromosomes_h = [
+    "chr1",
+    "chr2",
+    "chr3",
+    "chr4",
+    "chr5",
+    "chr6",
+    "chr7",
+    "chr8",
+    "chr9",
+    "chr10",
+    "chr11",
+    "chr12",
+    "chr13",
+    "chr14",
+    "chr15",
+    "chr16",
+    "chr17",
+    "chr18",
+    "chr19",
+    "chr20",
+    "chr21",
+    "chr22",
+    "chrX",
+    "chrY",
+]
+chromosomes_m = [
+    "chr1",
+    "chr2",
+    "chr3",
+    "chr4",
+    "chr5",
+    "chr6",
+    "chr7",
+    "chr8",
+    "chr9",
+    "chr10",
+    "chr11",
+    "chr12",
+    "chr13",
+    "chr14",
+    "chr15",
+    "chr16",
+    "chr17",
+    "chr18",
+    "chr19",
+    "chrX",
+    "chrY",
+]
+target_AS = ["SE", "RI", "MXE", "A3SS", "A5SS"]
 
 ########################################################################
 # Read in all of the command line arguments and set the default values #
 ########################################################################
 
-if(len(sys.argv)<6):
-	print("Please provide all mandatory arguments. \nFormat: $ python3 as_quant.py -s hg38 -i dir1 dir2")
-	sys.exit()
+if len(sys.argv) < 6:
+    print("Please provide all mandatory arguments. \nFormat: $ python3 as_quant.py -s hg38 -i dir1 dir2")
+    sys.exit()
 
 for ii in range(len(sys.argv)):
-	if sys.argv[ii] == '-s' or sys.argv[ii] == '-S':
-		species = sys.argv[ii+1]
-	if sys.argv[ii] == '-o' or sys.argv[ii] == '-O':
-			output_dir = sys.argv[ii+1]
-	if sys.argv[ii] == '-i' or sys.argv[ii] == '-I':
-		input1_dir = sys.argv[ii+1]
-		input2_dir = sys.argv[ii+2]
-	if sys.argv[ii] == '-method':
-		method = sys.argv[ii+1]
-	if sys.argv[ii] == '-c':
-		cores = sys.argv[ii+1]
+    if sys.argv[ii] == "-s" or sys.argv[ii] == "-S":
+        species = sys.argv[ii + 1]
+    if sys.argv[ii] == "-o" or sys.argv[ii] == "-O":
+        output_dir = sys.argv[ii + 1]
+    if sys.argv[ii] == "-i" or sys.argv[ii] == "-I":
+        input1_dir = sys.argv[ii + 1]
+        input2_dir = sys.argv[ii + 2]
+    if sys.argv[ii] == "-method":
+        method = sys.argv[ii + 1]
+    if sys.argv[ii] == "-c":
+        cores = sys.argv[ii + 1]
 
 if "-o" not in sys.argv and "-O" not in sys.argv:
-	output_dir = 'Output/'
+    output_dir = "Output/"
 
 os.makedirs(output_dir, exist_ok=True)
 
 if input1_dir[-1] == "/":
-	input1_dir = input1_dir[:-1]
+    input1_dir = input1_dir[:-1]
 if input2_dir[-1] == "/":
-	input2_dir = input2_dir[:-1]
+    input2_dir = input2_dir[:-1]
 
-novel = 'yes' if '-novel' in sys.argv else 'no'
-if '-method' not in sys.argv:
-	method = 'chisquare'
+novel = "yes" if "-novel" in sys.argv else "no"
+if "-method" not in sys.argv:
+    method = "chisquare"
 
-if method == 'ranksum':
-	count1 = len(glob.glob1(input1_dir,"*.bam"))
-	count2 = len(glob.glob1(input2_dir,"*.bam"))
-	if count1 < 2 or count2 < 2:
-		print("Please provide multiple samples/replicates in each group to run ranksum test, otherwise select chisquare.")
-		sys.exit()
+if method == "ranksum":
+    count1 = len(glob.glob1(input1_dir, "*.bam"))
+    count2 = len(glob.glob1(input2_dir, "*.bam"))
+    if count1 < 2 or count2 < 2:
+        print("Please provide multiple samples/replicates in each group to run ranksum test, otherwise select chisquare.")
+        sys.exit()
 
 
 ########################################################################
 # NEW CODE: Handle the -c flag for number of cores to use              #
 ########################################################################
 
+parallel = True
+
 # Use the maximum number of cores available by default
-if '-c' not in sys.argv:
-	cores = cpu_count()
+if "-c" not in sys.argv:
+    print("Number of cores not provided.")
+    print("Running AS-Quant in sequential mode...")
 
 # Grab the number of cores to use from the command line, if within the available range. Otherwise, exit.
 if int(cores) > cpu_count():
-	print("Number of cores requested is greater than available cores. Please provide a number less than or equal to", cpu_count()) 
-	sys.exit()
+    print(
+        "Number of cores requested is greater than available cores. Please provide a number less than or equal to",
+        cpu_count(),
+    )
+    sys.exit()
+
+# If specified cores is equal to 1, then run the code in sequential mode
+if int(cores) == 1:
+    print("Running with one core is slower than simply running the code in sequential mode. Running APA-Scan sequentially instead")
+    print("Running AS-Quant in sequential mode...")
 
 # Inform the user of the number of cores to be used
 print("Beginning AS-Quant with", cores, "cores...")
@@ -86,13 +143,13 @@ print("Beginning AS-Quant with", cores, "cores...")
 g1_name, g2_name = os.path.basename(input1_dir), os.path.basename(input2_dir)
 
 # Determine the chromosomes based on the species
-if species == 'hg38' or species == 'hg19':
-	chromosomes = chromosomes_h
-elif species == 'mm10':
-	chromosomes = chromosomes_m
+if species == "hg38" or species == "hg19":
+    chromosomes = chromosomes_h
+elif species == "mm10":
+    chromosomes = chromosomes_m
 else:
-	print("Species not found. Please select among hg38, hg19 or mm10")
-	sys.exit()
+    print("Species not found. Please select among hg38, hg19 or mm10")
+    sys.exit()
 
 # Generate the coverage files for each chromosome using samtools
 print("Generating read coverage files for each chromosome...")
@@ -101,7 +158,7 @@ os.chdir(input1_dir)
 for file1 in glob.glob("*.bam"):
     # preprocess.SamtoTextSequential(input1_dir, current, file1, chromosomes)
     preprocess.SamtoTextParallel(input1_dir, current, file1, chromosomes, cores)
-os.chdir(os.path.join(current,input2_dir))
+os.chdir(os.path.join(current, input2_dir))
 for file2 in glob.glob("*.bam"):
     # preprocess.SamtoTextSequential(input2_dir, current, file2, chromosomes) (OLD: Sequential version of SamtoText)
     preprocess.SamtoTextParallel(input2_dir, current, file2, chromosomes, cores)
@@ -109,7 +166,7 @@ os.chdir(current)
 
 # Load the annotation file.
 s1_namelist, s2_namelist = list_dirs(input1_dir), list_dirs(input2_dir)
-ann_df = pd.read_csv(os.path.join(species, 'annotation.csv'), delimiter='\t', index_col=0)
+ann_df = pd.read_csv(os.path.join(species, "annotation.csv"), delimiter="\t", index_col=0)
 
 # Convert the whole annotation into a dictionary for faster use
 ChromDict = methods.MakeFullDictionary(ann_df, chromosomes)
@@ -120,97 +177,228 @@ ChromDict_merged = methods.merge_ChromDict(ChromDict, chromosomes)
 
 ########################################################################
 # Run the AS-Quant pipeline to detect significant splicing events      #
-######################################################################## 
+########################################################################
+
 
 ########################################################################
 # NEW: Functions to detect splicing events in parallel			       #
-######################################################################## 
+########################################################################
 def execute_find_splicing_events(args):
     ChromDict_merged, chromosomes, AS, input_dir, species, sample, output_dir = args
     methods.Find_splicing_events(ChromDict_merged, chromosomes, AS, input_dir, species, sample, output_dir)
 
-def parallel_find_splicing_events(ChromDict_merged, chromosomes, target_AS, input1_dir, input2_dir, species, s1_namelist, s2_namelist, output_dir, cores):
+
+def parallel_find_splicing_events(
+    ChromDict_merged,
+    chromosomes,
+    target_AS,
+    input1_dir,
+    input2_dir,
+    species,
+    s1_namelist,
+    s2_namelist,
+    output_dir,
+    cores,
+):
     tasks = []
     for AS in target_AS:
         print("Spliced Exon type: ", AS)
-        
+
         for sample in s1_namelist:
-            tasks.append((ChromDict_merged, chromosomes, AS, input1_dir, species, sample, output_dir))
-        
+            tasks.append(
+                (
+                    ChromDict_merged,
+                    chromosomes,
+                    AS,
+                    input1_dir,
+                    species,
+                    sample,
+                    output_dir,
+                )
+            )
+
         for sample in s2_namelist:
-            tasks.append((ChromDict_merged, chromosomes, AS, input2_dir, species, sample, output_dir))
+            tasks.append(
+                (
+                    ChromDict_merged,
+                    chromosomes,
+                    AS,
+                    input2_dir,
+                    species,
+                    sample,
+                    output_dir,
+                )
+            )
 
     with Pool(int(cores)) as pool:
         pool.map(execute_find_splicing_events, tasks)
+
 
 def execute_find_novel_splicing_events(args):
-    ChromDict_merged, ChromDict, chromosomes, AS, input_dir, species, sample, output_dir = args
-    methods.Find_Novel_splicing_events(ChromDict_merged, ChromDict, chromosomes, AS, input_dir, species, sample, output_dir)
+    (
+        ChromDict_merged,
+        ChromDict,
+        chromosomes,
+        AS,
+        input_dir,
+        species,
+        sample,
+        output_dir,
+    ) = args
+    methods.Find_Novel_splicing_events(
+        ChromDict_merged,
+        ChromDict,
+        chromosomes,
+        AS,
+        input_dir,
+        species,
+        sample,
+        output_dir,
+    )
 
-def parallel_find_novel_splicing_events(ChromDict_merged, ChromDict, chromosomes, target_AS, input1_dir, input2_dir, species, s1_namelist, s2_namelist, output_dir, cores):
+
+def parallel_find_novel_splicing_events(
+    ChromDict_merged,
+    ChromDict,
+    chromosomes,
+    target_AS,
+    input1_dir,
+    input2_dir,
+    species,
+    s1_namelist,
+    s2_namelist,
+    output_dir,
+    cores,
+):
     tasks = []
     for AS in target_AS:
         print("Spliced Exon type: ", AS)
-        
+
         for sample in s1_namelist:
-            tasks.append((ChromDict_merged, ChromDict, chromosomes, AS, input1_dir, species, sample, output_dir))
-        
+            tasks.append(
+                (
+                    ChromDict_merged,
+                    ChromDict,
+                    chromosomes,
+                    AS,
+                    input1_dir,
+                    species,
+                    sample,
+                    output_dir,
+                )
+            )
+
         for sample in s2_namelist:
-            tasks.append((ChromDict_merged, ChromDict, chromosomes, AS, input2_dir, species, sample, output_dir))
+            tasks.append(
+                (
+                    ChromDict_merged,
+                    ChromDict,
+                    chromosomes,
+                    AS,
+                    input2_dir,
+                    species,
+                    sample,
+                    output_dir,
+                )
+            )
 
     with Pool(int(cores)) as pool:
         pool.map(execute_find_splicing_events, tasks)
-        
 
-if novel.upper() == 'YES':
-	print("Running AS-Quant for detecting significant novel (unannotated) splicing events...")
-	parallel_find_novel_splicing_events(ChromDict_merged, ChromDict, chromosomes, target_AS, input1_dir, input2_dir, species, s1_namelist, s2_namelist, output_dir, cores)
-    
-    # OLD: Sequential version of Find_Novel_splicing_events
-	# target_AS = ['All']
-	# for AS in target_AS:
-	# 	for sample in s1_namelist:
-	# 		print("Executing: ",sample, "in group 1")
-	# 		methods.Find_Novel_splicing_events(ChromDict_merged, ChromDict, chromosomes, AS, input1_dir, species, sample, output_dir)
-	# 	for sample in s2_namelist:
-	# 		print("Executing: ",sample, "in group 2")
-	# 		methods.Find_Novel_splicing_events(ChromDict_merged, ChromDict, chromosomes, AS, input2_dir, species, sample, output_dir)
-			
+
+if novel.upper() == "YES":
+    print("Running AS-Quant for detecting significant novel (unannotated) splicing events...")
+    if parallel:
+        parallel_find_novel_splicing_events(
+            ChromDict_merged,
+            ChromDict,
+            chromosomes,
+            target_AS,
+            input1_dir,
+            input2_dir,
+            species,
+            s1_namelist,
+            s2_namelist,
+            output_dir,
+            cores,
+        )
+    else:
+        # OLD: Sequential version of Find_Novel_splicing_events
+        target_AS = ["All"]
+        for AS in target_AS:
+            for sample in s1_namelist:
+                print("Executing: ", sample, "in group 1")
+                methods.Find_Novel_splicing_events(
+                    ChromDict_merged,
+                    ChromDict,
+                    chromosomes,
+                    AS,
+                    input1_dir,
+                    species,
+                    sample,
+                    output_dir,
+                )
+            for sample in s2_namelist:
+                print("Executing: ", sample, "in group 2")
+                methods.Find_Novel_splicing_events(
+                    ChromDict_merged,
+                    ChromDict,
+                    chromosomes,
+                    AS,
+                    input2_dir,
+                    species,
+                    sample,
+                    output_dir,
+                )
+
 else:
-	print("Running AS-Quant for detecting significant annotated splicing events...")
-	parallel_find_splicing_events(ChromDict_merged, chromosomes, target_AS, input1_dir, input2_dir, species, s1_namelist, s2_namelist, output_dir, cores)
- 
-	# OLD: Sequential version of Find_splicing_events
-	# for AS in target_AS:
-	# 	print("Spliced Exon type: ",AS)
-	# 	for sample in s1_namelist:
-	# 		print("Executing: ",sample, "in group 1")
-	# 		methods.Find_splicing_events(ChromDict_merged, chromosomes, AS, input1_dir, species, sample, output_dir)
-
-	# 	for sample in s2_namelist:
-	# 		print("Executing: ",sample, "in group 2")
-	# 		methods.Find_splicing_events(ChromDict_merged, chromosomes, AS, input2_dir, species, sample, output_dir)
-
+    print("Running AS-Quant for detecting significant annotated splicing events...")
+    if parallel:
+        parallel_find_splicing_events(
+            ChromDict_merged,
+            chromosomes,
+            target_AS,
+            input1_dir,
+            input2_dir,
+            species,
+            s1_namelist,
+            s2_namelist,
+            output_dir,
+            cores,
+        )
+    else:
+        # OLD: Sequential version of Find_splicing_events
+        for AS in target_AS:
+            print("Spliced Exon type: ", AS)
+            for sample in s1_namelist:
+                print("Executing: ", sample, "in group 1")
+                methods.Find_splicing_events(ChromDict_merged, chromosomes, AS, input1_dir, species, sample, output_dir)
+            for sample in s2_namelist:
+                print("Executing: ", sample, "in group 2")
+                methods.Find_splicing_events(ChromDict_merged, chromosomes, AS, input2_dir, species, sample, output_dir)
 
 ########################################################################
 # Write the output to an Excel file 								   #
 ########################################################################
 
-writer_out = pd.ExcelWriter(os.path.join(output_dir, "asquant_"+g1_name+"_Vs_"+g2_name+".xlsx"), engine='xlsxwriter')
+writer_out = pd.ExcelWriter(
+    os.path.join(output_dir, "asquant_" + g1_name + "_Vs_" + g2_name + ".xlsx"),
+    engine="xlsxwriter",
+)
 for AS in target_AS:
-	if method.lower() == 'ranksum':
-		print("Detecting significant events using Wilcoxon rank-sum method...")
-		count_pvalue.Count_pvalue_replicates(AS, output_dir, s1_namelist, s2_namelist)
-	else:
-		print("Detecting significant events using Chi-squared method...")
-		count_pvalue.Count_pvalue(AS, output_dir, s1_namelist, s2_namelist, g1_name, g2_name)
-	print(AS, "counting p-val Complete")
+    if method.lower() == "ranksum":
+        print("Detecting significant events using Wilcoxon rank-sum method...")
+        count_pvalue.Count_pvalue_replicates(AS, output_dir, s1_namelist, s2_namelist)
+    else:
+        print("Detecting significant events using Chi-squared method...")
+        count_pvalue.Count_pvalue(AS, output_dir, s1_namelist, s2_namelist, g1_name, g2_name)
+    print(AS, "counting p-val Complete")
 
-	df = pd.read_csv(os.path.join(output_dir, AS+"_Output.csv"), delimiter = '\t')
-	df.sort_values(by=['P_value'], ascending=True, inplace=True)
-	df.to_excel(writer_out, sheet_name=AS, index = None, header=True)
-	os.remove(os.path.join(output_dir, AS+"_Output.csv"))
+    df = pd.read_csv(os.path.join(output_dir, AS + "_Output.csv"), delimiter="\t")
+    df.sort_values(by=["P_value"], ascending=True, inplace=True)
+    df.to_excel(writer_out, sheet_name=AS, index=None, header=True)
+    os.remove(os.path.join(output_dir, AS + "_Output.csv"))
 writer_out.save()
 
 totalTime = time.time() - startTime
-print("Total AS-Quant time is : ",round((totalTime/60),2), "minutes")
+print("Total AS-Quant time is : ", round((totalTime / 60), 2), "minutes")
