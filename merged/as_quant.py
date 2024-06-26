@@ -114,10 +114,16 @@ if method == "ranksum":
 
 parallel = True
 
-# Use the maximum number of cores available by default
+# If the -c flag is MAX, then use the maximum number of cores available
+if cores.upper() == "MAX":
+    cores = cpu_count()
+    print("Running AS-Quant with", cores, "cores...")
+
+# If cores is not provided, then run the code in sequential mode
 if "-c" not in sys.argv:
     print("Number of cores not provided.")
     print("Running AS-Quant in sequential mode...")
+    parallel = False
 
 # Grab the number of cores to use from the command line, if within the available range. Otherwise, exit.
 if int(cores) > cpu_count():
@@ -131,9 +137,13 @@ if int(cores) > cpu_count():
 if int(cores) == 1:
     print("Running with one core is slower than simply running the code in sequential mode. Running APA-Scan sequentially instead")
     print("Running AS-Quant in sequential mode...")
+    parallel = False
 
 # Inform the user of the number of cores to be used
-print("Beginning AS-Quant with", cores, "cores...")
+if parallel:
+    print("Beginning AS-Quant with", cores, "cores...")
+else:
+    print("Beginning AS-Quant...")
 
 ########################################################################
 # Generate the coverage files for each chromosome based on species     #
