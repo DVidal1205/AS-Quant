@@ -4,11 +4,11 @@ AS-Quant generates the quantification level of different types of alternative sp
 
 ## Paralellization
 
-1. AS-Quant now supports parallel processing to speed up the quantification process. Users can specify the number of **cores** to use for parallel processing with the **-c** flag. The default number of cores is the number of cores available on the machine.
+1. AS-Quant now supports parallel processing to speed up the quantification process. Users can specify the number of **cores** to use for parallel processing with the **-c** flag. If no cores are specified, then the default is to run the code sequentially. Users can also use the MAX value to use all available cores on the machine.
 
 ## Change in Samtools
 
-Debian distributions have issues with easily configuring execution permissions for the samtools binary. To address this issue, I have installed the samtools binary to my system in the /usr/local/bin directory. To accomodate this change, I had to modify samtools_directory in the preprocess.py file to /usr/local/bin/samtools. This change will allow the program to run on Debian distributions without any issues. (Note: the version of samtools downloaded on my system is identical to the one in the repository)
+Debian distributions have issues with easily configuring execution permissions for the samtools binary. To address this issue, I have installed the samtools binary to my system in the /usr/local/bin directory. To accomodate this change, I had to modify samtools_directory in the preprocess.py file to /usr/local/bin/samtools. This change will allow the program to run on Debian distributions without any issues. (Note: the version of samtools downloaded on my system is identical to the one in the repository. I am looking into a more permanent solution for this issue to add in the documentation.)
 
 # Installation
 
